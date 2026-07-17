@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "StockoutRisk",
+  "namespace": "io.quarkusdroneshop.dataproducts.inventoryanalytics",
+  "fields": [
+    { "name": "item", "type": "string" },
+    { "name": "atRisk", "type": "boolean" },
+    { "name": "lastStockoutEventAt", "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

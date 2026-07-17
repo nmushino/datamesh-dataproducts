@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "ComponentStockEvent",
+  "namespace": "io.quarkusdroneshop.dataproducts.componentstock",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "skuId", "type": "string" },
+    { "name": "item", "type": "string" },
+    {
+      "name": "eventType",
+      "type": { "type": "enum", "name": "ComponentStockEventType", "symbols": ["RESTOCK_REQUESTED", "RESTOCK_COMPLETED"] }
+    },
+    { "name": "eventTimestamp", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "sourceTopic", "type": "string" }
+  ]
+}

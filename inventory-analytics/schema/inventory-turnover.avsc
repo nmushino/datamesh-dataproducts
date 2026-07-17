@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "InventoryTurnover",
+  "namespace": "io.quarkusdroneshop.dataproducts.inventoryanalytics",
+  "fields": [
+    { "name": "item", "type": "string" },
+    { "name": "windowStart", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "windowEnd", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "restockRequestedCount", "type": "long" },
+    { "name": "stockoutCancelledCount", "type": "long" }
+  ]
+}

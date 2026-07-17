@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "AssemblyLeadTime",
+  "namespace": "io.quarkusdroneshop.dataproducts.assemblyleadtime.qdca10pro",
+  "fields": [
+    { "name": "itemId", "type": "string" },
+    { "name": "orderId", "type": "string" },
+    { "name": "item", "type": ["null", "string"], "default": null },
+    { "name": "placedAt", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "fulfilledAt", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "leadTimeSeconds", "type": "long" },
+    { "name": "assemblyLine", "type": "string", "default": "QDCA10PRO" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "SalesTrend",
+  "namespace": "io.quarkusdroneshop.dataproducts.salestrends",
+  "fields": [
+    { "name": "item", "type": "string" },
+    { "name": "windowStart", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "windowEnd", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "orderCount", "type": "long" },
+    { "name": "revenue", "type": { "type": "bytes", "logicalType": "decimal", "precision": 12, "scale": 2 } },
+    { "name": "assemblyLine", "type": ["null", "string"], "default": null },
+    { "name": "location", "type": ["null", "string"], "default": null }
+  ]
+}

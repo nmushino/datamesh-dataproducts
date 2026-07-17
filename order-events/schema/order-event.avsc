@@ -1,0 +1,59 @@
+{
+  "type": "record",
+  "name": "OrderEvent",
+  "namespace": "io.quarkusdroneshop.dataproducts.orderevents",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "orderId", "type": "string" },
+    {
+      "name": "eventType",
+      "type": {
+        "type": "enum",
+        "name": "OrderEventType",
+        "symbols": ["ORDER_PLACED", "LINE_ITEM_STATUS_CHANGED", "ORDER_CANCELLED"]
+      }
+    },
+    { "name": "eventTimestamp", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    {
+      "name": "orderSource",
+      "type": ["null", { "type": "enum", "name": "OrderSource", "symbols": ["COUNTER", "WEB", "PARTNER"] }],
+      "default": null
+    },
+    {
+      "name": "location",
+      "type": ["null", { "type": "enum", "name": "Location", "symbols": ["ATLANTA", "CHARLOTTE", "RALEIGH", "TOKYO"] }],
+      "default": null
+    },
+    { "name": "loyaltyMemberId", "type": ["null", "string"], "default": null },
+    {
+      "name": "orderStatus",
+      "type": ["null", { "type": "enum", "name": "OrderStatus", "symbols": ["PLACED", "IN_PROGRESS", "FULFILLED", "CANCELLED"] }],
+      "default": null
+    },
+    {
+      "name": "lineItem",
+      "type": ["null", {
+        "type": "record",
+        "name": "OrderEventLineItem",
+        "fields": [
+          { "name": "itemId", "type": "string" },
+          { "name": "item", "type": "string" },
+          { "name": "name", "type": "string" },
+          { "name": "price", "type": { "type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2 } },
+          {
+            "name": "lineItemStatus",
+            "type": { "type": "enum", "name": "LineItemStatus", "symbols": ["PLACED", "IN_PROGRESS", "FULFILLED"] }
+          },
+          {
+            "name": "assemblyLine",
+            "type": ["null", { "type": "enum", "name": "AssemblyLine", "symbols": ["QDCA10", "QDCA10PRO"] }],
+            "default": null
+          }
+        ]
+      }],
+      "default": null
+    },
+    { "name": "sourceDomain", "type": "string", "doc": "生イベントを発行したドメインサービス名" },
+    { "name": "sourceTopic", "type": "string", "doc": "生イベントの元トピック名" }
+  ]
+}
