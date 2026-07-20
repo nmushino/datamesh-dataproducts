@@ -12,12 +12,17 @@ CREATE TABLE order_events_src (
     WATERMARK FOR eventTimestamp AS eventTimestamp - INTERVAL '30' SECOND
 ) WITH (
     'connector' = 'kafka',
-    'topic' = 'order_events',
+    'topic' = '${ORDER_EVENTS_TOPIC}',
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'qdca10pro-lead-time-flink',
     'scan.startup.mode' = 'earliest-offset',
     'value.format' = 'avro-confluent',
-    'value.avro-confluent.url' = '${APICURIO_REGISTRY_URL}/apis/ccompat/v6',
+    -- order-events は asite の Apicurio Registry でシリアライズされている。
+    -- MirrorMaker2 はレコードのバイト列をそのままミラーするだけで
+    -- schema-id は各サイトの Registry 間で共有されないため、デシリアライズには
+    -- 実際にシリアライズした asite の Registry URL を使う必要がある
+    -- (ミラー先サイト自身の Registry を使うと schema-id の意味が変わり壊れる)。
+    'value.avro-confluent.url' = '${ORDER_EVENTS_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'order-events-value'
 );
 
@@ -47,20 +52,33 @@ SELECT
     fulfilledAt,
     TIMESTAMPDIFF(SECOND, placedAt, fulfilledAt) AS leadTimeSeconds,
     'QDCA10PRO' AS assemblyLine
-FROM order_events_src
+-- MATCH_RECOGNIZE 内でのネストした ROW フィールド (lineItem.itemId 等) への
+-- ドット参照は Calcite のパーサ/バリデータで解決に失敗することがあるため、
+-- 事前にサブクエリでトップレベルの列へフラット化してから MATCH_RECOGNIZE する。
+FROM (
+    SELECT
+        orderId,
+        eventType,
+        orderStatus,
+        lineItem.itemId       AS liItemId,
+        lineItem.item         AS liItem,
+        lineItem.assemblyLine AS liAssemblyLine,
+        eventTimestamp
+    FROM order_events_src
+)
     MATCH_RECOGNIZE (
-        PARTITION BY lineItem.itemId
+        PARTITION BY liItemId
         ORDER BY eventTimestamp
         MEASURES
-            lineItem.itemId AS itemId,
-            orderId AS orderId,
-            lineItem.item AS item,
+            P.liItemId AS itemId,
+            P.orderId AS orderId,
+            P.liItem AS item,
             P.eventTimestamp AS placedAt,
             F.eventTimestamp AS fulfilledAt
         AFTER MATCH SKIP PAST LAST ROW
         PATTERN (P I? F)
         DEFINE
-            P AS P.eventType = 'LINE_ITEM_STATUS_CHANGED' AND P.orderStatus = 'PLACED' AND P.lineItem.assemblyLine = 'QDCA10PRO',
-            I AS I.eventType = 'LINE_ITEM_STATUS_CHANGED' AND I.orderStatus = 'IN_PROGRESS' AND I.lineItem.assemblyLine = 'QDCA10PRO',
-            F AS F.eventType = 'LINE_ITEM_STATUS_CHANGED' AND F.orderStatus = 'FULFILLED' AND F.lineItem.assemblyLine = 'QDCA10PRO'
+            P AS P.eventType = 'LINE_ITEM_STATUS_CHANGED' AND P.orderStatus = 'PLACED' AND P.liAssemblyLine = 'QDCA10PRO',
+            I AS I.eventType = 'LINE_ITEM_STATUS_CHANGED' AND I.orderStatus = 'IN_PROGRESS' AND I.liAssemblyLine = 'QDCA10PRO',
+            F AS F.eventType = 'LINE_ITEM_STATUS_CHANGED' AND F.orderStatus = 'FULFILLED' AND F.liAssemblyLine = 'QDCA10PRO'
     );

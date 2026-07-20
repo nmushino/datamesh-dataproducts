@@ -31,7 +31,7 @@ CREATE TABLE order_events_src (
     WATERMARK FOR eventTimestamp AS eventTimestamp - INTERVAL '10' SECOND
 ) WITH (
     'connector' = 'kafka',
-    'topic' = 'order_events',
+    'topic' = 'dataproduct-order-events',
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'inventory-analytics-flink',
     'scan.startup.mode' = 'earliest-offset',

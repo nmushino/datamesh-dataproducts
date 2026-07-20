@@ -1,7 +1,7 @@
 -- Real-time Sales Trends Flink Job
--- OrderEvents (order_events トピック) の FULFILLED 明細を Item 別にウィンドウ集計する。
+-- OrderEvents (dataproduct-order-events トピック) の FULFILLED 明細を Item 別にウィンドウ集計する。
 --
--- 前提: order-events-job.sql が稼働しており、order_events トピックが存在すること。
+-- 前提: order-events-job.sql が稼働しており、dataproduct-order-events トピックが存在すること。
 -- schema/sales-trend.avsc を Apicurio に group=dataproducts, artifactId=sales-trends-value として登録すること。
 
 CREATE TABLE order_events_src (
@@ -26,7 +26,7 @@ CREATE TABLE order_events_src (
     WATERMARK FOR eventTimestamp AS eventTimestamp - INTERVAL '10' SECOND
 ) WITH (
     'connector' = 'kafka',
-    'topic' = 'order_events',
+    'topic' = 'dataproduct-order-events',
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'sales-trends-flink',
     'scan.startup.mode' = 'earliest-offset',

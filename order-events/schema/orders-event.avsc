@@ -48,6 +48,12 @@
             "name": "assemblyLine",
             "type": ["null", { "type": "enum", "name": "AssemblyLine", "symbols": ["QDCA10", "QDCA10PRO"] }],
             "default": null
+          },
+          {
+            "name": "madeBy",
+            "type": ["null", "string"],
+            "doc": "組立処理を行った Pod のホスト名等 (QDCA10/QDCA10pro の OrderUp.madeBy)",
+            "default": null
           }
         ]
       }],
