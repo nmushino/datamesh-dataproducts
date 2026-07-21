@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "Customer360",
+  "namespace": "io.quarkusdroneshop.dataproducts.customer360",
+  "doc": "dataproduct-order-events (Aサイト/Bサイト双方のイベントを統合したハブ) のみを入力とする顧客統合プロファイル。customerName を統合キーとする (loyaltyMemberId は未入力の場合が多いため)。",
+  "fields": [
+    { "name": "customerName", "type": "string", "doc": "統合キー。注文の lineItem.name (注文者名)。" },
+    { "name": "loyaltyMemberId", "type": ["null", "string"], "default": null },
+    { "name": "lastLocation", "type": ["null", "string"], "default": null },
+    { "name": "lastOrderId", "type": ["null", "string"], "default": null },
+    { "name": "lastOrderAt", "type": ["null", { "type": "long", "logicalType": "timestamp-millis" }], "default": null },
+    { "name": "totalOrders", "type": "long", "default": 0 },
+    { "name": "updatedAt", "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

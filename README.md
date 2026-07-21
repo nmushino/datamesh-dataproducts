@@ -35,15 +35,15 @@ dataproducts/
 
 | データプロダクト | 状態 | 概要 | 主なソース(既存トピック) |
 |---|---|---|---|
-| [OrderEvents](order-events/README.md) | 実装済み(スキーマ・Flink・Iceberg・Trino雛形) | 全ドメイン共通の正規化済み注文イベント。他プロダクトの土台となるハブ | `orders-in`, `orders-up`(qdca10 / qdca10pro / counter) |
-| [Real-time Sales Trends](real-time-sales-trends/README.md) | 実装済み(同上) | 売上のリアルタイム集計(5分・日次) | OrderEvents |
-| [Drone Component Stock](drone-component-stock/README.md) | 実装済み(同上) | 部品補充の現在ステータス・履歴 | `inventory-in`, `inventory-out`, `inventory-live` |
-| [Inventory Analytics](inventory-analytics/README.md) | 実装済み(同上) | 在庫消費速度・欠品リスク分析 | Drone Component Stock, OrderEvents |
-| [Assembly Lead Time QDCA10](assembly-lead-time-qdca10/README.md) | 実装済み(同上) | QDCA10 組立工程のリードタイム | OrderEvents(qdca10 由来) |
-| [Assembly Lead Time QDCA10pro](assembly-lead-time-qdca10pro/README.md) | 実装済み(同上) | QDCA10pro 組立工程のリードタイム | OrderEvents(qdca10pro 由来) |
-| [Customer 360](customer-360/README.md) | 実装済み(同上) | 顧客プロファイルの統合ビュー | `loyalty-updates`, `rewards`, Postgres CDC(`postgresql-prod.dronedb.public.customers`), OrderEvents |
+| [OrderEvents](dataproduct-order-events/README.md) | 実装済み(スキーマ・Flink・Iceberg・Trino雛形) | 全ドメイン共通の正規化済み注文イベント。他プロダクトの土台となるハブ | `orders-in`, `orders-up`(qdca10 / qdca10pro / counter) |
+| [Real-time Sales Trends](dataproduct-real-time-sales-trends/README.md) | 実装済み(同上) | 売上のリアルタイム集計(5分・日次) | OrderEvents |
+| [Dataproduct Inventory Event](dataproduct-inventory-event/README.md) | 実装済み(同上) | 部品補充の現在ステータス・履歴 | `inventory-in`, `inventory-out`, `inventory-live` |
+| [Inventory Analytics](dataproduct-inventory-analytics/README.md) | 実装済み(同上) | 在庫消費速度・欠品リスク分析 | Dataproduct Inventory Event, OrderEvents |
+| [Assembly Lead Time QDCA10](dataproduct-assembly-lead-time-qdca10/README.md) | 実装済み(同上) | QDCA10 組立工程のリードタイム | OrderEvents(qdca10 由来) |
+| [Assembly Lead Time QDCA10pro](dataproduct-assembly-lead-time-qdca10pro/README.md) | 実装済み(同上) | QDCA10pro 組立工程のリードタイム | OrderEvents(qdca10pro 由来) |
+| [Customer 360](dataproduct-customer-360/README.md) | 実装済み(同上) | 顧客プロファイルの統合ビュー | `loyalty-updates`, `rewards`, Postgres CDC(`postgresql-prod.dronedb.public.customers`), OrderEvents |
 
-依存関係: OrderEvents(ハブ) → Real-time Sales Trends / Drone Component Stock(独立) → Inventory Analytics(Drone Component Stock + OrderEvents) / Assembly Lead Time QDCA10 / QDCA10pro / Customer 360。
+依存関係: OrderEvents(ハブ) → Real-time Sales Trends / Dataproduct Inventory Event(独立) → Inventory Analytics(Dataproduct Inventory Event + OrderEvents) / Assembly Lead Time QDCA10 / QDCA10pro / Customer 360。
 
 「実装済み」は Flink SQL・Iceberg DDL・Trino ビュー・Apicurio 用 Avro スキーマの雛形が揃った状態を指す。実際の Flink クラスタ・Apicurio Service Registry・Trino への接続先(URL・認証情報)が未確定のため、デプロイ(`quarkusdroneshop-ansible` へのタスク追加)は別途行う。
 

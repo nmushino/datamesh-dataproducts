@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "OrderUpEvent",
+  "namespace": "io.quarkusdroneshop.dataproducts.assemblyresult",
+  "doc": "QDCA10/QDCA10pro の組立完了通知 (orders-up トピック)。プロデューサは各ドメインサービス (Java) のままで、このスキーマは既存トピックへのガバナンス付与 (自己記述化・カタログ登録) のためのもの。",
+  "fields": [
+    { "name": "orderId", "type": "string" },
+    { "name": "lineItemId", "type": "string" },
+    { "name": "item", "type": "string", "doc": "QDC_A101 等の商品コード (QDCA10/QDCA10pro それぞれの Item enum の name())" },
+    { "name": "name", "type": "string", "doc": "注文者名" },
+    { "name": "timestamp", "type": "string", "doc": "組立完了時刻 (ISO-8601, java.time.Instant を JSON 文字列化したもの)" },
+    { "name": "madeBy", "type": ["null", "string"], "doc": "組立処理を行った Pod のホスト名等", "default": null }
+  ]
+}

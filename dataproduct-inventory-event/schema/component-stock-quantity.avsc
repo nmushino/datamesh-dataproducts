@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "ComponentStockQuantity",
+  "namespace": "io.quarkusdroneshop.dataproducts.componentstock",
+  "doc": "item (ドローン品目) ごとの現在庫数。RestockCompletedEvent (inventory ドメイン) 由来で、実際に補充が完了した時点の数量のみを反映する。QDCA10/QDCA10pro など下流サービスがローカルキャッシュを構築するための公開トピック。",
+  "fields": [
+    { "name": "item", "type": "string", "doc": "QDC_A101 等の品目コード" },
+    { "name": "quantity", "type": "long" },
+    { "name": "lastRestockedAt", "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}
