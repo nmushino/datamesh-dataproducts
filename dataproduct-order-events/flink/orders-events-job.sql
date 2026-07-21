@@ -66,18 +66,17 @@ CREATE TABLE orders_up (
     'format' = 'json'
 );
 
--- 【2026-07-21 修正】QDCA10/QDCA10pro の実際の発行コード
--- (eightySixEmitter.send(orderIn.getItem().toString())) は、item 名の
--- 素の文字列 (例: "QDC_A104_AC") を送っているだけで、orderId を含む
--- JSON オブジェクトではない。以前は orderId カラムを持つ 'format'='json'
--- として定義されていたため、eighty-six にメッセージが来るたびに
--- "Failed to deserialize JSON" で例外が発生し、この eighty_six ソースと
--- 同じジョブ (STATEMENT SET でまとめている全 INSERT) 全体が繰り返し
--- クラッシュ・再起動し続け、事実上 order-events データプロダクト全体が
--- 機能停止していた (発見・対応済み)。item のみの単純な文字列として
--- 'format'='raw' で読む。orderId はこのイベントには存在しないため、
--- 下流の INSERT 側でプレースホルダを補う。
+-- 【経緯】当初 QDCA10/QDCA10pro は eighty-six へ item 名の素の文字列
+-- (例: "QDC_A104_AC") のみを送っており、orderId を含まなかったため、
+-- 一時的に 'format'='raw' で読み、下流の ORDER_CANCELLED にはプレースホルダの
+-- orderId を補っていた (欠品がどの注文・明細のものか特定できなかった)。
+-- 【2026-07-21 修正】qdca10/qdca10pro に EightySixMessage を導入し、
+-- orderId/lineItemId/item を含む JSON を送るように変更したため、
+-- ここも 'format'='json' で読み、実在の orderId/lineItemId を
+-- ORDER_CANCELLED イベントに使えるようにする。
 CREATE TABLE eighty_six (
+    orderId    STRING,
+    lineItemId STRING,
     item       STRING,
     event_time TIMESTAMP(3) METADATA FROM 'timestamp',
     WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
@@ -87,7 +86,7 @@ CREATE TABLE eighty_six (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'order-events-flink',
     'scan.startup.mode' = 'earliest-offset',
-    'format' = 'raw'
+    'format' = 'json'
 );
 
 -- =========================================================
@@ -336,17 +335,15 @@ FROM orders_up AS u;
 -- =========================================================
 INSERT INTO order_events_from_eighty_six
 SELECT
-    MD5(CONCAT('EIGHTY-SIX|', e.item, '|ORDER_CANCELLED|', CAST(e.event_time AS STRING))) AS eventId,
-    -- eighty-six イベントには orderId が含まれない (item のみ) ため、
-    -- 実在の orderId とは相関しないプレースホルダを使う。
-    CONCAT('EIGHTY-SIX-', e.item)                       AS orderId,
+    MD5(CONCAT(e.orderId, '|', e.lineItemId, '|ORDER_CANCELLED|', CAST(e.event_time AS STRING))) AS eventId,
+    e.orderId                                           AS orderId,
     'ORDER_CANCELLED'                                   AS eventType,
     e.event_time                                        AS eventTimestamp,
     CAST(NULL AS STRING)                                AS orderSource,
     CAST(NULL AS STRING)                                AS location,
     CAST(NULL AS STRING)                                AS loyaltyMemberId,
     'CANCELLED'                                          AS orderStatus,
-    ROW(CAST(NULL AS STRING), e.item, CAST(NULL AS STRING), CAST(NULL AS DECIMAL(10,2)), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING)) AS lineItem,
+    ROW(e.lineItemId, e.item, CAST(NULL AS STRING), CAST(NULL AS DECIMAL(10,2)), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING)) AS lineItem,
     'qdca10'                                            AS sourceDomain,
     'eighty-six'                                        AS sourceTopic
 FROM eighty_six AS e;
