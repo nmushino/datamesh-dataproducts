@@ -121,3 +121,35 @@ SELECT
     event_time AS lastRestockedAt
 FROM inventory_out
 WHERE eventType = 'RESTOCK_COMPLETED_EVENT';
+
+-- =========================================================
+-- component_stock_quantity への注文消費反映 (QDCA10/QDCA10pro)
+-- 【2026-07-21 追加】これまで component_stock_quantity は補充完了時点の数量
+-- しか反映しておらず、注文による消費が一切反映されないため、この dataproduct を
+-- 参照する下流 (在庫管理ページ等) では常に「補充時の数値のまま」に見えていた。
+-- QDCA10/QDCA10pro は在庫判定用にローカルで保持している消費後の絶対数を
+-- component-stock-decrement (JSON) へ publish するので、それをそのまま
+-- upsert する (上と同じ sink キー=item のため、後着イベントが優先される)。
+-- =========================================================
+
+CREATE TABLE component_stock_decrement (
+    item       STRING,
+    quantity   BIGINT,
+    event_time TIMESTAMP(3) METADATA FROM 'timestamp',
+    WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'dataproduct-component-stock-decrement',
+    'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
+    'properties.group.id' = 'component-stock-flink',
+    'scan.startup.mode' = 'earliest-offset',
+    'format' = 'json',
+    'json.ignore-parse-errors' = 'true'
+);
+
+INSERT INTO component_stock_quantity
+SELECT
+    item,
+    quantity,
+    event_time AS lastRestockedAt
+FROM component_stock_decrement;

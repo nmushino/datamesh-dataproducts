@@ -86,7 +86,14 @@ CREATE TABLE eighty_six (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'order-events-flink',
     'scan.startup.mode' = 'earliest-offset',
-    'format' = 'json'
+    'format' = 'json',
+    -- 【2026-07-21 修正】eighty-six を JSON 化する以前 (品目名の素の文字列のみ送信
+    -- していた頃) に publish された旧形式メッセージがトピックに残っており、
+    -- 'earliest-offset' で読み直すたびに JSON パースに失敗してタスクが FAILED になり、
+    -- ジョブ全体が無限リスタートループに陥っていた (チェックポイントも一度も成功しない
+    -- ため、orders_in/orders_up 側の処理も不安定になっていた)。パース失敗レコードは
+    -- スキップして処理を継続する。
+    'json.ignore-parse-errors' = 'true'
 );
 
 -- =========================================================
