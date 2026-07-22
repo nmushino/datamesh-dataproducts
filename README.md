@@ -12,6 +12,23 @@ QuarkusDroneShop におけるドメイン間のイベント処理・データア
   - **Apache Iceberg** — Table Format。Flink の出力を Iceberg テーブルとして永続化し、Time travel・監査・バッチ/ストリーム両対応のストレージとする。
   - **Trino** — SQL Query Engine。他ドメイン・BI・RHDH・AI Agent からのデータアクセスはすべて Trino 経由(`dataproducts.*` スキーマの公開ビューのみ)とする。ドメイン内部の Iceberg テーブルは直接公開しない。
 
+### dataproduct 経由に統一すべきケース / しなくてよいケース
+
+「ドメインをまたぐ連携は dataproduct 経由に統一する」方針は、**同じ情報が既に governed な dataproduct として存在するのに、それを無視して別の直接トピックでも同じ情報をやり取りしているケース**を対象とする。すべての Kafka トピックを dataproduct でラップし直すという意味ではない。
+
+- **dataproduct 経由に統一すべき例: `qdca10-in` / `qdca10pro-in`(counter → QDCA10/QDCA10pro)**
+  以前は counter が新規注文を QDCA10/QDCA10pro に伝える際、`qdca10-in`/`qdca10pro-in` という 1 対 1 のポイントツーポイント通知トピックへ直接発行していた。しかし QDCA10/QDCA10pro は本番では既に [OrderEvents](dataproduct-order-events/README.md) (`dataproduct-order-events` の `ORDER_PLACED`) を購読するよう移行済みであり、`qdca10-in`/`qdca10pro-in` は**本番では誰も読んでいない冗長経路**になっていた。counter の送信先を `orders-in`(dataproduct-order-events の入力元と共通)に統一し、`qdca10-in`/`qdca10pro-in` への直接発行コード自体を削除した(2026-07-22)。
+
+- **同様に統一した例: Homeoffice (Real-Time Order Board)**
+  homeoffice も従来は counter が直接発行する `shop-asite.orders-in`(注文全体をまとめた JSON)を購読していた。これも OrderEvents 経由(`dataproduct-order-events` の `ORDER_PLACED`、明細単位)に統一した。dataproduct 側は明細単位でストリームされ「この注文の明細はこれで全部」という区切りが無いため、homeoffice 側に `OrderAssemblyAggregator`(orderId ごとにオンメモリ集約し、一定時間 (debounce) 新しい明細が届かなくなった注文を確定として扱う)を新設して吸収している。
+
+- **dataproduct 経由にしない例(意図的な例外): `orders-in`(Web/counter → counter 自身)**
+  counter 自身が購読している `orders-in`(Web 等が発行する生の注文コマンド)は dataproduct 化しない。理由は次の 2 点:
+  1. **`orders-in` は `dataproduct-order-events` の入力元(ソース)そのもの。** OrderEvents Flink ジョブ自身がこの `orders-in` を読んで `dataproduct-order-events` を生成しており、これを dataproduct 経由に置き換えようとすると「dataproduct を作るために `orders-in` を読む処理」と「counter が `orders-in` を読む処理」を両方持つだけで意味がない。
+  2. **counter は注文の正本(system of record)を持つサービスである。** `onOrderInTx()` で `Order` を永続化し Debezium Outbox イベントを発火する起点そのものであり、ここを Flink ジョブ経由にすると、注文作成という最もクリティカルな経路に Flink ジョブ停止・MirrorMaker2 の設定ドリフト・スロット枯渇といった障害点を新たに持ち込むことになる(実際、このリポジトリではいずれも過去に発生している)。データの一次発生源を、その正当な所有者・最初の消費者が直接読むのは、データメッシュの考え方としても妥当である。
+
+**判断基準のまとめ:** 「同じ内容を提供する governed な dataproduct が既に存在するか」「自分がそのデータの一次所有者/生成者か、それとも単なる下流消費者か」の 2 点で判断する。下流消費者であり、かつ dataproduct が既に存在するなら dataproduct 経由に統一する。自分がデータの一次所有者(正本を作る側)であれば、生トピックを直接読んでよい。
+
 ### 命名・テーブル規約
 
 各データプロダクトは、次の 2 系統の Iceberg テーブルを持つことを基本とする。

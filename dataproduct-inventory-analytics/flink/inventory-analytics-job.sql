@@ -62,7 +62,9 @@ CREATE TABLE stockout_risk (
     PRIMARY KEY (item) NOT ENFORCED
 ) WITH (
     'connector' = 'upsert-kafka',
-    'topic' = 'stockout_risk',
+    -- MirrorMaker2 のクロスサイト購読対象パターン (dataproduct.*) に合致させるため
+    -- dataproduct- prefix を付ける (2026-07-22 修正: 旧名 stockout_risk はミラー対象外だった)。
+    'topic' = 'dataproduct-stockout-risk',
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'key.format' = 'raw',
     'value.format' = 'avro-confluent',
