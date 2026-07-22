@@ -12,12 +12,12 @@ CREATE TABLE component_stock_events_src (
     WATERMARK FOR eventTimestamp AS eventTimestamp - INTERVAL '10' SECOND
 ) WITH (
     'connector' = 'kafka',
-    'topic' = 'dataproduct-inventory-events',
+    'topic' = '${INVENTORY_EVENTS_TOPIC}',
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'inventory-analytics-flink',
     'scan.startup.mode' = 'earliest-offset',
     'value.format' = 'avro-confluent',
-    'value.avro-confluent.url' = '${APICURIO_REGISTRY_URL}/apis/ccompat/v6',
+    'value.avro-confluent.url' = '${INVENTORY_EVENTS_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'component-stock-events-value'
 );
 
@@ -31,12 +31,12 @@ CREATE TABLE order_events_src (
     WATERMARK FOR eventTimestamp AS eventTimestamp - INTERVAL '10' SECOND
 ) WITH (
     'connector' = 'kafka',
-    'topic' = 'dataproduct-order-events',
+    'topic' = '${ORDER_EVENTS_TOPIC}',
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'inventory-analytics-flink',
     'scan.startup.mode' = 'earliest-offset',
     'value.format' = 'avro-confluent',
-    'value.avro-confluent.url' = '${APICURIO_REGISTRY_URL}/apis/ccompat/v6',
+    'value.avro-confluent.url' = '${ORDER_EVENTS_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'order-events-value'
 );
 
@@ -145,12 +145,12 @@ CREATE TABLE component_stock_events_src_for_iceberg (
     WATERMARK FOR eventTimestamp AS eventTimestamp - INTERVAL '10' SECOND
 ) WITH (
     'connector' = 'kafka',
-    'topic' = 'dataproduct-inventory-events',
+    'topic' = '${INVENTORY_EVENTS_TOPIC}',
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'inventory-analytics-flink-iceberg',
     'scan.startup.mode' = 'earliest-offset',
     'value.format' = 'avro-confluent',
-    'value.avro-confluent.url' = '${APICURIO_REGISTRY_URL}/apis/ccompat/v6',
+    'value.avro-confluent.url' = '${INVENTORY_EVENTS_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'component-stock-events-value'
 );
 
