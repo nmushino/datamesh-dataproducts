@@ -114,6 +114,7 @@ CREATE TABLE component_stock_quantity (
     'value.avro-confluent.subject' = 'component-stock-quantity-value'
 );
 
+SET 'pipeline.name' = 'component-stock-quantity-from-restock';
 INSERT INTO component_stock_quantity
 SELECT
     item,
@@ -147,6 +148,7 @@ CREATE TABLE component_stock_decrement (
     'json.ignore-parse-errors' = 'true'
 );
 
+SET 'pipeline.name' = 'component-stock-quantity-from-order-decrement';
 INSERT INTO component_stock_quantity
 SELECT
     item,
