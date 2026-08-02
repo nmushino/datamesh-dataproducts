@@ -16,6 +16,7 @@ CREATE TABLE component_stock_events_src (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'inventory-analytics-flink',
     'scan.startup.mode' = 'earliest-offset',
+    'scan.watermark.idle-timeout' = '30s',
     'value.format' = 'avro-confluent',
     'value.avro-confluent.url' = '${INVENTORY_EVENTS_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'component-stock-events-value'
@@ -35,6 +36,7 @@ CREATE TABLE order_events_src (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'inventory-analytics-flink',
     'scan.startup.mode' = 'earliest-offset',
+    'scan.watermark.idle-timeout' = '30s',
     'value.format' = 'avro-confluent',
     'value.avro-confluent.url' = '${ORDER_EVENTS_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'order-events-value'
@@ -149,6 +151,7 @@ CREATE TABLE component_stock_events_src_for_iceberg (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'inventory-analytics-flink-iceberg',
     'scan.startup.mode' = 'earliest-offset',
+    'scan.watermark.idle-timeout' = '30s',
     'value.format' = 'avro-confluent',
     'value.avro-confluent.url' = '${INVENTORY_EVENTS_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'component-stock-events-value'
@@ -168,6 +171,7 @@ CREATE TABLE order_events_src_for_iceberg (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'inventory-analytics-flink-iceberg',
     'scan.startup.mode' = 'earliest-offset',
+    'scan.watermark.idle-timeout' = '30s',
     'value.format' = 'avro-confluent',
     'value.avro-confluent.url' = '${APICURIO_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'order-events-value'

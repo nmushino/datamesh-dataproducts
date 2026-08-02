@@ -33,6 +33,12 @@ CREATE TABLE order_events_src (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'sales-trends-flink',
     'scan.startup.mode' = 'earliest-offset',
+    -- データが疎らな(あるいは全く来ない)パーティションが1つでもあると、
+    -- そのパーティションの watermark が進まず全体の event-time watermark が
+    -- そこでブロックされ、TUMBLE ウィンドウが永久に close/emit されなくなる
+    -- (ソース自体はレコードを正常に消費し続けるため気づきにくい)。
+    -- 一定時間データが来ないパーティションは watermark 計算から除外する。
+    'scan.watermark.idle-timeout' = '30s',
     'value.format' = 'avro-confluent',
     -- order-events は asite の Apicurio Registry でシリアライズされている。
     -- MirrorMaker2 はレコードのバイト列をそのままミラーするだけで
@@ -152,6 +158,12 @@ CREATE TABLE order_events_src_for_iceberg (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'sales-trends-flink-iceberg',
     'scan.startup.mode' = 'earliest-offset',
+    -- データが疎らな(あるいは全く来ない)パーティションが1つでもあると、
+    -- そのパーティションの watermark が進まず全体の event-time watermark が
+    -- そこでブロックされ、TUMBLE ウィンドウが永久に close/emit されなくなる
+    -- (ソース自体はレコードを正常に消費し続けるため気づきにくい)。
+    -- 一定時間データが来ないパーティションは watermark 計算から除外する。
+    'scan.watermark.idle-timeout' = '30s',
     'value.format' = 'avro-confluent',
     'value.avro-confluent.url' = '${ORDER_EVENTS_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'order-events-value'
