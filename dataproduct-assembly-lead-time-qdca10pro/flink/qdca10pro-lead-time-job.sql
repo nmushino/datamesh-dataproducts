@@ -16,6 +16,7 @@ CREATE TABLE order_events_src (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'qdca10pro-lead-time-flink',
     'scan.startup.mode' = 'earliest-offset',
+    'scan.watermark.idle-timeout' = '30s',
     'value.format' = 'avro-confluent',
     -- order-events は asite の Apicurio Registry でシリアライズされている。
     -- MirrorMaker2 はレコードのバイト列をそのままミラーするだけで
@@ -77,8 +78,10 @@ FROM (
             F.eventTimestamp AS fulfilledAt
         AFTER MATCH SKIP PAST LAST ROW
         PATTERN (P I? F)
+        -- 【2026-08-04 修正】qdca10-lead-time-job.sql と同じ理由で P の条件を修正
+        -- (ORDER_PLACED イベントは eventType='ORDER_PLACED' で発行される)。
         DEFINE
-            P AS P.eventType = 'LINE_ITEM_STATUS_CHANGED' AND P.orderStatus = 'PLACED' AND P.liAssemblyLine = 'QDCA10PRO',
+            P AS P.eventType = 'ORDER_PLACED' AND P.orderStatus = 'PLACED' AND P.liAssemblyLine = 'QDCA10PRO',
             I AS I.eventType = 'LINE_ITEM_STATUS_CHANGED' AND I.orderStatus = 'IN_PROGRESS' AND I.liAssemblyLine = 'QDCA10PRO',
             F AS F.eventType = 'LINE_ITEM_STATUS_CHANGED' AND F.orderStatus = 'FULFILLED' AND F.liAssemblyLine = 'QDCA10PRO'
     );

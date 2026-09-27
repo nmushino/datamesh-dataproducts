@@ -99,7 +99,10 @@ FROM TABLE(
 WHERE eventType = 'LINE_ITEM_STATUS_CHANGED' AND orderStatus = 'FULFILLED'
 GROUP BY window_start, window_end, lineItem.item, lineItem.assemblyLine, location;
 
--- 日次 Tumbling Window
+-- 日次集計だが、デモ環境では1日分の待機が非現実的なため、ウィンドウ幅は
+-- 5分に短縮している (テーブル名/フィールド名は "daily" のまま、実体は
+-- 5分足の sales_trends_5m と同じ集計になる)。本番相当の日次集計へ戻す
+-- 場合は INTERVAL '1' DAY に戻すこと。
 INSERT INTO sales_trends_daily
 SELECT
     lineItem.item                          AS item,
@@ -110,7 +113,7 @@ SELECT
     lineItem.assemblyLine                  AS assemblyLine,
     location                               AS location
 FROM TABLE(
-    TUMBLE(TABLE order_events_src, DESCRIPTOR(eventTimestamp), INTERVAL '1' DAY)
+    TUMBLE(TABLE order_events_src, DESCRIPTOR(eventTimestamp), INTERVAL '5' MINUTES)
 )
 WHERE eventType = 'LINE_ITEM_STATUS_CHANGED' AND orderStatus = 'FULFILLED'
 GROUP BY window_start, window_end, lineItem.item, lineItem.assemblyLine, location;
@@ -184,6 +187,7 @@ FROM TABLE(
 WHERE eventType = 'LINE_ITEM_STATUS_CHANGED' AND orderStatus = 'FULFILLED'
 GROUP BY window_start, window_end, lineItem.item, lineItem.assemblyLine, location;
 
+-- 上の sales_trends_daily (Kafka) と同じ理由でウィンドウ幅を5分に短縮している。
 INSERT INTO iceberg_catalog.dataproducts.sales_trends_daily
 SELECT
     lineItem.item                              AS item,
@@ -194,7 +198,7 @@ SELECT
     lineItem.assemblyLine                      AS assembly_line,
     location
 FROM TABLE(
-    TUMBLE(TABLE order_events_src_for_iceberg, DESCRIPTOR(eventTimestamp), INTERVAL '1' DAY)
+    TUMBLE(TABLE order_events_src_for_iceberg, DESCRIPTOR(eventTimestamp), INTERVAL '5' MINUTES)
 )
 WHERE eventType = 'LINE_ITEM_STATUS_CHANGED' AND orderStatus = 'FULFILLED'
 GROUP BY window_start, window_end, lineItem.item, lineItem.assemblyLine, location;

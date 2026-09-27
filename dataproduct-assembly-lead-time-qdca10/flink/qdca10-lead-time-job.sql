@@ -16,6 +16,10 @@ CREATE TABLE order_events_src (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'qdca10-lead-time-flink',
     'scan.startup.mode' = 'earliest-offset',
+    -- データが疎らな(あるいは全く来ない)パーティションが1つでもあると watermark
+    -- 全体がそこでブロックされ MATCH_RECOGNIZE が永久に emit されなくなる
+    -- (sales-trends-job.sql / orders-events-job.sql と同じ既知の問題)。
+    'scan.watermark.idle-timeout' = '30s',
     'value.format' = 'avro-confluent',
     -- order-events は asite の Apicurio Registry でシリアライズされている。
     -- MirrorMaker2 はレコードのバイト列をそのままミラーするだけで
@@ -77,8 +81,13 @@ FROM (
             F.eventTimestamp AS fulfilledAt
         AFTER MATCH SKIP PAST LAST ROW
         PATTERN (P I? F)
+        -- 【2026-08-04 修正】orders-events-job.sql が実際に発行するイベントは
+        -- ORDER_PLACED (eventType) / PLACED (orderStatus) であり、
+        -- LINE_ITEM_STATUS_CHANGED になるのは FULFILLED (orders-up 由来) のみ。
+        -- P の条件が eventType='LINE_ITEM_STATUS_CHANGED' のままだと永久に
+        -- マッチせず、Average OrderUp Time が常に空になっていた。
         DEFINE
-            P AS P.eventType = 'LINE_ITEM_STATUS_CHANGED' AND P.orderStatus = 'PLACED' AND P.liAssemblyLine = 'QDCA10',
+            P AS P.eventType = 'ORDER_PLACED' AND P.orderStatus = 'PLACED' AND P.liAssemblyLine = 'QDCA10',
             I AS I.eventType = 'LINE_ITEM_STATUS_CHANGED' AND I.orderStatus = 'IN_PROGRESS' AND I.liAssemblyLine = 'QDCA10',
             F AS F.eventType = 'LINE_ITEM_STATUS_CHANGED' AND F.orderStatus = 'FULFILLED' AND F.liAssemblyLine = 'QDCA10'
     );

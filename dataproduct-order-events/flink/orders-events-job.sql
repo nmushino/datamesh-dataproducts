@@ -42,6 +42,11 @@ CREATE TABLE orders_in (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'order-events-flink',
     'scan.startup.mode' = 'earliest-offset',
+    -- orders_up との INTERVAL JOIN (location 補完用) は両テーブルの watermark に
+    -- 依存する。データが疎らなパーティションが1つでもあると watermark 全体が
+    -- そこでブロックされ join が永久に emit されなくなる (sales-trends-job.sql と
+    -- 同じ既知の問題)。一定時間データが来ないパーティションは除外する。
+    'scan.watermark.idle-timeout' = '30s',
     'format' = 'json'
 );
 
@@ -63,6 +68,7 @@ CREATE TABLE orders_up (
     'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP_URLS}',
     'properties.group.id' = 'order-events-flink',
     'scan.startup.mode' = 'earliest-offset',
+    'scan.watermark.idle-timeout' = '30s',
     'format' = 'json'
 );
 
@@ -139,7 +145,7 @@ CREATE TABLE order_events_from_orders_in_qdca10 (
     'value.avro-confluent.url' = '${APICURIO_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'order-events-value',
     'sink.delivery-guarantee' = 'exactly-once',
-    'sink.transactional-id-prefix' = 'order-events-sink-orders-in-qdca10-v2',
+    'sink.transactional-id-prefix' = 'order-events-sink-orders-in-qdca10-v3',
     -- Flink Kafka connector のデフォルト transaction.timeout.ms (1時間) は
     -- Strimzi Kafka broker の transaction.max.timeout.ms (デフォルト15分) を
     -- 超えており InitProducerIdResponse が失敗する。broker の上限内に収める。
@@ -180,7 +186,7 @@ CREATE TABLE order_events_from_orders_in_qdca10pro (
     'value.avro-confluent.url' = '${APICURIO_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'order-events-value',
     'sink.delivery-guarantee' = 'exactly-once',
-    'sink.transactional-id-prefix' = 'order-events-sink-orders-in-qdca10pro-v2',
+    'sink.transactional-id-prefix' = 'order-events-sink-orders-in-qdca10pro-v3',
     'properties.transaction.timeout.ms' = '60000'
 );
 
@@ -214,7 +220,7 @@ CREATE TABLE order_events_from_orders_up (
     'value.avro-confluent.url' = '${APICURIO_REGISTRY_URL}/apis/ccompat/v6',
     'value.avro-confluent.subject' = 'order-events-value',
     'sink.delivery-guarantee' = 'exactly-once',
-    'sink.transactional-id-prefix' = 'order-events-sink-orders-up-v2',
+    'sink.transactional-id-prefix' = 'order-events-sink-orders-up-v3',
     'properties.transaction.timeout.ms' = '60000'
 );
 
@@ -252,7 +258,7 @@ CREATE TABLE order_events_from_eighty_six (
     -- state が原因と見られる InitProducerId の無限ループ (INITIALIZING のまま
     -- 進まずチェックポイントが永久に失敗する) が発生したため、prefix を
     -- 変更してクリーンな transactional-id を強制する。
-    'sink.transactional-id-prefix' = 'order-events-sink-eighty-six-v2',
+    'sink.transactional-id-prefix' = 'order-events-sink-eighty-six-v3',
     'properties.transaction.timeout.ms' = '60000'
 );
 
@@ -306,15 +312,22 @@ CROSS JOIN UNNEST(o.qdca10proLineItems) AS t(itemId, item, name, price);
 -- =========================================================
 -- orders-up への到達自体が「完了」を意味し、明示的なステータスフィールドは
 -- 存在しない (OrderUp.java 参照)。assemblyLine は madeBy (ホスト名prefix) から判定する。
+-- orders-up (OrderUp.java: {orderId, lineItemId, item, name, timestamp, madeBy}) には
+-- location/orderSource/loyaltyMemberId が含まれない。以前はここを一律 NULL にしていたが、
+-- そのせいで sales-trends-job.sql の日次集計から生成される SalesTrend には location が
+-- 一切残らず、下流の getStoreServerSalesByDate (Store Sales ダッシュボード) が
+-- 「location が NULL の行は除外する」フィルタにより常に 0 件を返す構造的なバグに
+-- なっていた。同一 orderId の ORDER_PLACED (orders_in) と JOIN してヘッダー情報を
+-- 補完することで、集計まで正しく location/orderSource/loyaltyMemberId を伝播させる。
 INSERT INTO order_events_from_orders_up
 SELECT
     MD5(CONCAT(u.orderId, '|', u.lineItemId, '|FULFILLED|', CAST(u.event_time AS STRING))) AS eventId,
     u.orderId                                           AS orderId,
     'LINE_ITEM_STATUS_CHANGED'                          AS eventType,
     u.event_time                                        AS eventTimestamp,
-    CAST(NULL AS STRING)                                AS orderSource,
-    CAST(NULL AS STRING)                                AS location,
-    CAST(NULL AS STRING)                                AS loyaltyMemberId,
+    oi.orderSource                                      AS orderSource,
+    oi.location                                         AS location,
+    oi.loyaltyMemberId                                  AS loyaltyMemberId,
     'FULFILLED'                                         AS orderStatus,
     ROW(
         u.lineItemId,
@@ -335,7 +348,21 @@ SELECT
         ELSE CAST(NULL AS STRING)
     END                                                  AS sourceDomain,
     'orders-up'                                         AS sourceTopic
-FROM orders_up AS u;
+FROM orders_up AS u
+-- 通常の JOIN は Kafka sink (append-only) が非対応の update/delete 変更を生成する
+-- (Table sink '...' doesn't support consuming update and delete changes) ため、
+-- append-only な結果になる INTERVAL JOIN を使う。orders-in → orders-up は通常
+-- 数分〜数日で到達するため、7日を安全側の上限とする (これを超えて到達した
+-- orders-up はマッチせず除外される。ロス上等の実害の少ないダッシュボード用途)。
+JOIN orders_in AS oi
+    ON u.orderId = oi.id
+    AND u.event_time BETWEEN oi.event_time AND oi.event_time + INTERVAL '7' DAY
+-- orders-up には疎通確認用の ping メッセージ ({"test":"ping-..."}) が
+-- 混じることがある。必須フィールドが揃わない JSON は Flink の json フォーマットで
+-- 全カラム NULL の行に変換されてしまい、下流の sales-trends 集計へ item=null の
+-- ゴミレコードとして流れ込み、homeoffice-backend の変換で NPE を起こしていた。
+-- 実注文由来のメッセージだけを通す。
+WHERE u.orderId IS NOT NULL AND u.item IS NOT NULL;
 
 -- =========================================================
 -- 3. ORDER_CANCELLED (欠品) : eighty-six から
@@ -353,6 +380,8 @@ SELECT
     ROW(e.lineItemId, e.item, CAST(NULL AS STRING), CAST(NULL AS DECIMAL(10,2)), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING)) AS lineItem,
     'qdca10'                                            AS sourceDomain,
     'eighty-six'                                        AS sourceTopic
-FROM eighty_six AS e;
+FROM eighty_six AS e
+-- orders-up と同様、疎通確認用の ping メッセージを除外する。
+WHERE e.orderId IS NOT NULL AND e.item IS NOT NULL;
 
 END;
